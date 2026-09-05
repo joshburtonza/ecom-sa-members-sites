@@ -77,6 +77,7 @@ import {
 } from '../components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 const MyCourses = lazy(() => import('./my-courses'));
+const ShopifyDashboard = lazy(() => import('./shopify-dashboard'));
 const ActivityBoards = lazy(() => import('./activity-boards'));
 const AdStudio = lazy(() => import('./ad-studio'));
 const RevenueChart = lazy(() => import('./revenue-chart'));
@@ -1405,206 +1406,220 @@ export default function Hub() {
               )}
               {view === 'store' && (
                 <>
-                  <div className="stats">
-                    {[
-                      [
-                        TrendingUp,
-                        'Sales less refunds',
-                        money(data.counts.revenue),
-                        'All logged events',
-                      ],
-                      [
-                        Package,
-                        'Orders logged',
-                        data.counts.orders || 0,
-                        'Excludes voided events',
-                      ],
-                      [
-                        Store,
-                        'Your stores',
-                        data.stores.length,
-                        'Private to you and the team',
-                      ],
-                      [
-                        KeyRound,
-                        'Active API keys',
-                        data.keys.filter(
-                          (k) => !k.revoked && k.expires_at > Date.now(),
-                        ).length,
-                        'Revocable · 90-day expiry',
-                      ],
-                    ].map(([Icon, label, value, note]: any) => (
-                      <div className="stat" key={label}>
-                        <div className="stat-label">
-                          {label}
-                          <Icon />
+                  <Suspense fallback={<p>Opening your store dashboard…</p>}>
+                    <ShopifyDashboard
+                      stores={data.stores.map((s) => ({
+                        id: s.id,
+                        name: s.name,
+                      }))}
+                      addStore={() => open('store')}
+                    />
+                  </Suspense>
+                  <details className="store-advanced">
+                    <summary>
+                      Advanced: event API, manual webhooks and logged results
+                    </summary>
+                    <div className="stats">
+                      {[
+                        [
+                          TrendingUp,
+                          'Sales less refunds',
+                          money(data.counts.revenue),
+                          'All logged events',
+                        ],
+                        [
+                          Package,
+                          'Orders logged',
+                          data.counts.orders || 0,
+                          'Excludes voided events',
+                        ],
+                        [
+                          Store,
+                          'Your stores',
+                          data.stores.length,
+                          'Private to you and the team',
+                        ],
+                        [
+                          KeyRound,
+                          'Active API keys',
+                          data.keys.filter(
+                            (k) => !k.revoked && k.expires_at > Date.now(),
+                          ).length,
+                          'Revocable · 90-day expiry',
+                        ],
+                      ].map(([Icon, label, value, note]: any) => (
+                        <div className="stat" key={label}>
+                          <div className="stat-label">
+                            {label}
+                            <Icon />
+                          </div>
+                          <strong>{value}</strong>
+                          <small>{note}</small>
                         </div>
-                        <strong>{value}</strong>
-                        <small>{note}</small>
-                      </div>
-                    ))}
-                  </div>
-                  {!data.stores.length ? (
-                    <section className="panel">
-                      <Empty
-                        icon={Store}
-                        title="Let your progress speak."
-                        action={
-                          <Button onClick={() => open('store')}>
-                            <Plus />
-                            Add my first store
-                          </Button>
-                        }
-                      >
-                        Add a store, then connect signed Shopify webhooks or
-                        send events using your own API key. Your store name
-                        stays off the public board.
-                      </Empty>
-                    </section>
-                  ) : (
-                    <div className="stack">
-                      <section className="panel">
-                        <PanelHead title="Your stores">
-                          <button
-                            className="text-link"
-                            onClick={() => open('api-docs')}
-                          >
-                            API guide <ArrowUpRight />
-                          </button>
-                        </PanelHead>
-                        {data.stores.map((s) => (
-                          <div className="key-row" key={s.id}>
-                            <div>
-                              <h3>{s.name}</h3>
-                              <small>
-                                {s.connected
-                                  ? s.domain + ' · signing secret saved'
-                                  : 'No Shopify webhook connected'}
-                              </small>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                              <Button
-                                variant="secondary"
-                                onClick={() => open('key', s)}
-                              >
-                                <KeyRound />
-                                API key
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() => open('shopify', s)}
-                              >
-                                Shopify
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                onClick={() => open('manual', s)}
-                              >
-                                <Plus />
-                                Log a result
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </section>
-                      <section className="panel">
-                        <PanelHead title="This month, one step at a time">
-                          <span className="text-xs text-muted-foreground">
-                            SAST · ZAR
-                          </span>
-                        </PanelHead>
-                        {data.chart.length ? (
-                          <div className="px-3 pb-5 h-[230px]">
-                            <Suspense
-                              fallback={
-                                <p className="text-sm text-muted-foreground">
-                                  Loading your graph…
-                                </p>
-                              }
-                            >
-                              <RevenueChart
-                                data={
-                                  data.chart as {
-                                    day: string;
-                                    revenue: number;
-                                  }[]
-                                }
-                              />
-                            </Suspense>
-                          </div>
-                        ) : (
-                          <Empty
-                            icon={TrendingUp}
-                            title="Your graph starts with your first event."
-                            compact
-                          >
-                            No invented numbers. Connect a source and the log
-                            will update automatically.
-                          </Empty>
-                        )}
-                      </section>
-                      <section className="panel">
-                        <PanelHead title="Store event log">
-                          <span className="text-xs text-muted-foreground">
-                            Latest 100 events
-                          </span>
-                        </PanelHead>
-                        {data.events.length ? (
-                          eventTable(data.events)
-                        ) : (
-                          <Empty
-                            icon={Package}
-                            title="Waiting for the first result."
-                            compact
-                          />
-                        )}
-                      </section>
-                      <section className="panel">
-                        <PanelHead title="API keys">
-                          <span className="text-xs text-muted-foreground">
-                            Never share these in the community
-                          </span>
-                        </PanelHead>
-                        {data.keys.map((k) => (
-                          <div className="key-row" key={k.id}>
-                            <div>
-                              <h3>
-                                {k.name}{' '}
-                                <span className="pill muted">
-                                  {k.revoked
-                                    ? 'Revoked'
-                                    : k.expires_at < Date.now()
-                                      ? 'Expired'
-                                      : 'Active'}
-                                </span>
-                              </h3>
-                              <small>
-                                <code>{k.prefix}…</code> · Expires{' '}
-                                {when(k.expires_at)}
-                                <br />
-                                {k.last_used
-                                  ? 'Last used ' + timeAgo(k.last_used)
-                                  : 'Not used yet'}
-                              </small>
-                            </div>
-                            {!k.revoked && (
-                              <Button
-                                variant="outline"
-                                onClick={() => open('revoke-key', k)}
-                              >
-                                Revoke
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                        {!data.keys.length && (
-                          <Empty icon={KeyRound} title="No keys yet." compact>
-                            Create a key next to your store above.
-                          </Empty>
-                        )}
-                      </section>
+                      ))}
                     </div>
-                  )}
+                    {!data.stores.length ? (
+                      <section className="panel">
+                        <Empty
+                          icon={Store}
+                          title="Let your progress speak."
+                          action={
+                            <Button onClick={() => open('store')}>
+                              <Plus />
+                              Add my first store
+                            </Button>
+                          }
+                        >
+                          Add a store, then connect signed Shopify webhooks or
+                          send events using your own API key. Your store name
+                          stays off the public board.
+                        </Empty>
+                      </section>
+                    ) : (
+                      <div className="stack">
+                        <section className="panel">
+                          <PanelHead title="Your stores">
+                            <button
+                              className="text-link"
+                              onClick={() => open('api-docs')}
+                            >
+                              API guide <ArrowUpRight />
+                            </button>
+                          </PanelHead>
+                          {data.stores.map((s) => (
+                            <div className="key-row" key={s.id}>
+                              <div>
+                                <h3>{s.name}</h3>
+                                <small>
+                                  {s.connected
+                                    ? s.domain + ' · signing secret saved'
+                                    : 'No Shopify webhook connected'}
+                                </small>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  variant="secondary"
+                                  onClick={() => open('key', s)}
+                                >
+                                  <KeyRound />
+                                  API key
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => open('shopify', s)}
+                                >
+                                  Manual webhook
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  onClick={() => open('manual', s)}
+                                >
+                                  <Plus />
+                                  Log a result
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </section>
+                        <section className="panel">
+                          <PanelHead title="This month, one step at a time">
+                            <span className="text-xs text-muted-foreground">
+                              SAST · ZAR
+                            </span>
+                          </PanelHead>
+                          {data.chart.length ? (
+                            <div className="px-3 pb-5 h-[230px]">
+                              <Suspense
+                                fallback={
+                                  <p className="text-sm text-muted-foreground">
+                                    Loading your graph…
+                                  </p>
+                                }
+                              >
+                                <RevenueChart
+                                  data={
+                                    data.chart as {
+                                      day: string;
+                                      revenue: number;
+                                    }[]
+                                  }
+                                />
+                              </Suspense>
+                            </div>
+                          ) : (
+                            <Empty
+                              icon={TrendingUp}
+                              title="Your graph starts with your first event."
+                              compact
+                            >
+                              No invented numbers. Connect a source and the log
+                              will update automatically.
+                            </Empty>
+                          )}
+                        </section>
+                        <section className="panel">
+                          <PanelHead title="Store event log">
+                            <span className="text-xs text-muted-foreground">
+                              Latest 100 events
+                            </span>
+                          </PanelHead>
+                          {data.events.length ? (
+                            eventTable(data.events)
+                          ) : (
+                            <Empty
+                              icon={Package}
+                              title="Waiting for the first result."
+                              compact
+                            />
+                          )}
+                        </section>
+                        <section className="panel">
+                          <PanelHead title="API keys">
+                            <span className="text-xs text-muted-foreground">
+                              Never share these in the community
+                            </span>
+                          </PanelHead>
+                          {data.keys.map((k) => (
+                            <div className="key-row" key={k.id}>
+                              <div>
+                                <h3>
+                                  {k.name}{' '}
+                                  <span className="pill muted">
+                                    {k.revoked
+                                      ? 'Revoked'
+                                      : k.expires_at < Date.now()
+                                        ? 'Expired'
+                                        : 'Active'}
+                                  </span>
+                                </h3>
+                                <small>
+                                  <code>{k.prefix}…</code> · Expires{' '}
+                                  {when(k.expires_at)}
+                                  <br />
+                                  {k.last_used
+                                    ? 'Last used ' + timeAgo(k.last_used)
+                                    : 'Not used yet'}
+                                </small>
+                              </div>
+                              {!k.revoked && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => open('revoke-key', k)}
+                                >
+                                  Revoke
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {!data.keys.length && (
+                            <Empty icon={KeyRound} title="No keys yet." compact>
+                              Create a key next to your store above.
+                            </Empty>
+                          )}
+                        </section>
+                      </div>
+                    )}
+                  </details>
                 </>
               )}
               {view === 'members' && (

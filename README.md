@@ -31,6 +31,8 @@ Five criteria are each 0–10; the server calculates the total out of 100. Ratin
 Course content is not imported from Skool or local files automatically. Only the original three workspace quickstart lessons are present until the owner supplies or uploads the actual course library.
 
 ## Integration
+Shopify Connect now has a separate read-only authorization and order dashboard. It is not enabled until the Shopify app and external routing are configured and tested. See [SHOPIFY-CONNECT.md](SHOPIFY-CONNECT.md) for scopes, setup, privacy handlers, refresh semantics and release gates. Collaborator codes are not API credentials. Shopify imports are not mixed into the existing event leaderboard, to avoid double counting.
+
 POST /api/v1/events with Authorization: Bearer <key>. JSON fields: event_id, kind (sale/refund), amount_cents (positive integer), currency (ZAR), occurred_at (ISO with timezone), optional note. The key owns the member/store mapping. 201 new, 200 duplicate, 409 conflicting reused ID. Do not put keys in browser JavaScript. Use one source per sale. Store integrations need their own retry queue.
 
 For Shopify manual admin webhooks, save the myshopify.com domain and webhook signing secret in My store. Add Order payment, Refund create and Transaction creation JSON webhooks using API 2026-07 and the displayed URL. Store secrets are AES-GCM encrypted using DATA_ENCRYPTION_KEY. Raw webhook payloads and customer PII are not retained. Non-ZAR, test, unpaid and unsuccessful refund events are not counted. Historical backfill, order edit adjustments, chargebacks and automatic reconciliation are not implemented: review merchant records regularly and correct discrepancies. Pending refunds require a subsequent successful transaction delivery.

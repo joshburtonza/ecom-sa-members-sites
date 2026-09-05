@@ -20,6 +20,10 @@ export const bindings = () =>
     DATA_ENCRYPTION_KEY?: string;
     OPENAI_API_KEY?: string;
     OPENAI_REVIEW_MODEL?: string;
+    SHOPIFY_CLIENT_ID?: string;
+    SHOPIFY_CLIENT_SECRET?: string;
+    SHOPIFY_APP_ORIGIN?: string;
+    SHOPIFY_CONNECT_ENABLED?: string;
   };
 export const db = () => bindings().DB;
 export const statement = (sql: string, ...values: (string | number | null)[]) =>

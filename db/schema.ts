@@ -224,3 +224,35 @@ export const reviewUsage = sqliteTable(
   },
   (t) => [index('review_usage_time').on(t.created_at)],
 );
+export const shopifyConnections = sqliteTable(
+  'shopify_connections',
+  {
+    store_id: text()
+      .primaryKey()
+      .references(() => stores.id),
+    domain: text().notNull(),
+    tokens: text(),
+    status: text().notNull().default('disconnected'),
+    connected_at: integer(),
+    snapshot: text(),
+    snapshot_at: integer(),
+    pending: text(),
+    lock_id: text(),
+    lock_until: integer().notNull().default(0),
+    last_attempt: integer().notNull().default(0),
+    last_error: text(),
+  },
+  (t) => [uniqueIndex('shopify_domain_owner').on(t.domain)],
+);
+export const shopifyStates = sqliteTable('shopify_states', {
+  state_hash: text().primaryKey(),
+  store_id: text()
+    .notNull()
+    .references(() => stores.id),
+  member_id: text()
+    .notNull()
+    .references(() => members.id),
+  domain: text().notNull(),
+  created_at: integer().notNull(),
+  expires_at: integer().notNull(),
+});
