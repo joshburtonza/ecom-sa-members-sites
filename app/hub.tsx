@@ -27,7 +27,6 @@ import {
   Search,
   ChevronRight,
   Check,
-  Play,
   MessageCircle,
   Heart,
   Pin,
@@ -41,12 +40,9 @@ import {
   Package,
   CheckCircle2,
   Lock,
-  LifeBuoy,
   FileText,
-  Upload,
-  Calendar,
   ExternalLink,
-  X,
+  Sparkles,
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -63,6 +59,7 @@ import {
 } from '../components/ui/sidebar';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { Checkbox } from '../components/ui/checkbox';
 import { Textarea } from '../components/ui/textarea';
 import {
   Dialog,
@@ -79,6 +76,9 @@ import {
   SelectItem,
 } from '../components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
+const MyCourses = lazy(() => import('./my-courses'));
+const ActivityBoards = lazy(() => import('./activity-boards'));
+const AdStudio = lazy(() => import('./ad-studio'));
 const RevenueChart = lazy(() => import('./revenue-chart'));
 type Row = Record<string, any>;
 type Data = {
@@ -98,6 +98,10 @@ type Data = {
   admin: Row | null;
   updatedAt: number;
   connectionsAvailable: boolean;
+  courses: Row[];
+  modules: Row[];
+  learningBoard: Row[];
+  helpfulBoard: Row[];
 };
 const channels = [
   ['general', 'The conversation'],
@@ -109,8 +113,9 @@ const channels = [
 const nav = [
   ['overview', 'Overview', Home],
   ['community', 'Community', MessageCircle],
-  ['classroom', 'Classroom', BookOpen],
-  ['leaderboard', 'Leaderboard', Trophy],
+  ['classroom', 'My Courses', BookOpen],
+  ['studio', 'Ad Review', Sparkles],
+  ['leaderboard', 'Leaderboards', Trophy],
   ['store', 'My store', Store],
   ['members', 'Members', Users],
 ] as const;
@@ -294,7 +299,6 @@ export default function Hub() {
     [revealed, setRevealed] = useState(''),
     [invite, setInvite] = useState('');
   const [draft, setDraft] = useState<Row>({}),
-    [filter, setFilter] = useState('all'),
     [failed, setFailed] = useState(false);
   const generation = useRef(0);
   const refresh = useCallback(async () => {
@@ -344,6 +348,7 @@ export default function Hub() {
         'overview',
         'community',
         'classroom',
+        'studio',
         'leaderboard',
         'store',
         'members',
@@ -364,7 +369,6 @@ export default function Hub() {
   const go = (v: string) => {
     setView(v);
     setSearch('');
-    setFilter('all');
     window.scrollTo({ top: 0 });
   };
   const open = (type: string, item?: Row) => {
@@ -575,8 +579,7 @@ export default function Hub() {
     admin = me.role === 'admin',
     published = data.lessons.filter((l) => l.published),
     complete = published.filter((l) => l.completed).length;
-  const nextLesson = published.find((l) => !l.completed),
-    store = data.stores[0];
+  const nextLesson = published.find((l) => !l.completed);
   const title =
     nav.find((n) => n[0] === view)?.[1] ||
     (view === 'profile' ? 'My profile' : 'Admin');
@@ -907,6 +910,8 @@ export default function Hub() {
                           )?.[1],
                           classroom:
                             'Less guessing. More doing. Take your next step.',
+                          studio:
+                            'Clear feedback. Stronger creative. One change at a time.',
                           leaderboard:
                             'Real progress. Shared by the people building it.',
                           store: 'Your store. Your numbers. Your story.',
@@ -949,6 +954,29 @@ export default function Hub() {
               </div>
               {view === 'overview' && (
                 <>
+                  <div className="workspace-launcher">
+                    <button onClick={() => go('classroom')}>
+                      <BookOpen />
+                      <span>
+                        <strong>My Courses</strong>
+                        <small>Pick up your next lesson</small>
+                      </span>
+                    </button>
+                    <button onClick={() => go('studio')}>
+                      <Sparkles />
+                      <span>
+                        <strong>Ad Review</strong>
+                        <small>Make your message clearer</small>
+                      </span>
+                    </button>
+                    <button onClick={() => go('leaderboard')}>
+                      <Trophy />
+                      <span>
+                        <strong>Leaderboards</strong>
+                        <small>See the progress being made</small>
+                      </span>
+                    </button>
+                  </div>
                   <section className="hero-panel">
                     <div className="hero-copy">
                       <span className="eyebrow">YOUR NEXT MOVE</span>
@@ -1213,67 +1241,42 @@ export default function Hub() {
                 </>
               )}
               {view === 'classroom' && (
-                <>
-                  <div className="filters">
-                    <Tabs
-                      value={filter}
-                      onValueChange={(v) => setFilter(String(v))}
-                    >
-                      <TabsList>
-                        <TabsTrigger value="all">All lessons</TabsTrigger>
-                        <TabsTrigger value="todo">To do</TabsTrigger>
-                        <TabsTrigger value="done">Completed</TabsTrigger>
-                      </TabsList>
-                    </Tabs>
-                    <span className="text-sm text-muted-foreground ml-auto">
-                      {complete} of {published.length} completed
-                    </span>
-                    {admin && (
-                      <Button onClick={() => open('edit-lesson')}>
-                        <Plus />
-                        New lesson
-                      </Button>
-                    )}
-                  </div>
-                  {[...new Set(data.lessons.map((l) => l.category))].map(
-                    (category) => (
-                      <section className="panel mb-5" key={category}>
-                        <PanelHead title={category} />
-                        {data.lessons
-                          .filter(
-                            (l) =>
-                              l.category === category &&
-                              (filter === 'all' ||
-                                (filter === 'done'
-                                  ? !!l.completed
-                                  : !l.completed)),
-                          )
-                          .map(lessonRow)}
-                      </section>
-                    ),
-                  )}
-                  {!data.lessons.length && (
-                    <div className="panel">
-                      <Empty
-                        icon={BookOpen}
-                        title="A home for your content."
-                        action={
-                          admin ? (
-                            <Button onClick={() => open('edit-lesson')}>
-                              Create a lesson
-                            </Button>
-                          ) : null
-                        }
-                      >
-                        Lessons, videos and resources will live here. Your
-                        progress is saved as you go.
-                      </Empty>
-                    </div>
-                  )}
-                </>
+                <Suspense fallback={<p>Loading your courses…</p>}>
+                  <MyCourses
+                    courses={data.courses || []}
+                    modules={data.modules || []}
+                    lessons={data.lessons}
+                    admin={admin}
+                    search={search}
+                    refresh={refresh}
+                    openLesson={(l) => open('lesson', l)}
+                    editLesson={(l) => open('edit-lesson', l)}
+                  />
+                </Suspense>
+              )}
+              {view === 'studio' && (
+                <Suspense fallback={<p>Opening Ad Review…</p>}>
+                  <AdStudio />
+                </Suspense>
               )}
               {view === 'leaderboard' && (
                 <>
+                  <Suspense fallback={<p>Loading rankings…</p>}>
+                    <ActivityBoards
+                      learning={(data.learningBoard as any) || []}
+                      helpful={(data.helpfulBoard as any) || []}
+                      me={me as any}
+                      period={period}
+                      setPeriod={setPeriod}
+                      profile={() => go('profile')}
+                    />
+                  </Suspense>
+                  <div className="feature-heading mt-8">
+                    <div>
+                      <span className="eyebrow">STORE RESULTS</span>
+                      <h2>Put your progress on the board.</h2>
+                    </div>
+                  </div>
                   <div className="filters">
                     <Tabs
                       value={ranking}
@@ -1647,6 +1650,8 @@ export default function Hub() {
                           name: f.get('name'),
                           bio: f.get('bio'),
                           leaderboard: f.get('leaderboard') === 'on',
+                          activity_leaderboard:
+                            f.get('activity_leaderboard') === 'on',
                         });
                       }}
                     >
@@ -1684,6 +1689,19 @@ export default function Hub() {
                           </p>
                         </label>
                       </div>
+                      <label className="check" htmlFor="activity-optin">
+                        <Checkbox
+                          name="activity_leaderboard"
+                          id="activity-optin"
+                          value="on"
+                          defaultChecked={!!me.activity_leaderboard}
+                        />
+                        <span>
+                          Show my display name and progress on the learning and
+                          helpful-member leaderboards. No store totals are
+                          shared by this setting.
+                        </span>
+                      </label>
                       <Button type="submit" disabled={busy}>
                         Save my profile <Check />
                       </Button>
@@ -2232,6 +2250,44 @@ export default function Hub() {
                     />
                   </Field>
                 </div>
+                <Field label="Course">
+                  <Pick
+                    label="Course"
+                    value={draft.course_id || 'none'}
+                    onChange={(v) => {
+                      d('course_id', v === 'none' ? null : v);
+                      d('module_id', null);
+                    }}
+                    items={[
+                      ['none', 'Original category (no course)'],
+                      ...(data.courses || []).map((c) => [c.id, c.title]),
+                    ]}
+                  />
+                </Field>
+                {draft.course_id && (
+                  <Field label="Module">
+                    <Pick
+                      label="Module"
+                      value={draft.module_id || 'none'}
+                      onChange={(v) => d('module_id', v === 'none' ? null : v)}
+                      items={[
+                        ['none', 'Ungrouped lessons'],
+                        ...(data.modules || [])
+                          .filter((m) => m.course_id === draft.course_id)
+                          .map((m) => [m.id, m.title]),
+                      ]}
+                    />
+                  </Field>
+                )}
+                <Field label="Lesson order (lowest first)">
+                  <Input
+                    type="number"
+                    min={0}
+                    max={999}
+                    value={draft.position || 0}
+                    onChange={(e) => d('position', Number(e.target.value))}
+                  />
+                </Field>
                 <Field label="Lesson content">
                   <Textarea
                     required

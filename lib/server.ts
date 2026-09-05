@@ -9,6 +9,7 @@ export type Member = {
   role: string;
   status: string;
   leaderboard: number;
+  activity_leaderboard: number;
   joined_at: number;
 };
 export const bindings = () =>
@@ -17,6 +18,8 @@ export const bindings = () =>
     FILES: R2Bucket;
     ADMIN_EMAIL?: string;
     DATA_ENCRYPTION_KEY?: string;
+    OPENAI_API_KEY?: string;
+    OPENAI_REVIEW_MODEL?: string;
   };
 export const db = () => bindings().DB;
 export const statement = (sql: string, ...values: (string | number | null)[]) =>

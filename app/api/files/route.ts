@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     const me = await member();
     const id = new URL(request.url).searchParams.get('id') || '';
     const asset = await statement(
-      "SELECT a.* FROM assets a WHERE a.id=? AND (?='admin' OR EXISTS(SELECT 1 FROM lessons l WHERE l.asset_id=a.id AND l.published=1))",
+      "SELECT a.* FROM assets a WHERE a.id=? AND (?='admin' OR EXISTS(SELECT 1 FROM lessons l LEFT JOIN courses co ON co.id=l.course_id WHERE l.asset_id=a.id AND l.published=1 AND (l.course_id IS NULL OR co.published=1)))",
       id,
       me.role,
     ).first<{ id: string; name: string; mime: string; size: number }>();

@@ -15,6 +15,13 @@
       "when": 1788633924652,
       "tag": "0001_welcome_lessons",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788636738099,
+      "tag": "0002_lethal_bulldozer",
+      "breakpoints": true
     }
   ]
 }

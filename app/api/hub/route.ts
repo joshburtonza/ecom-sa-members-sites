@@ -73,7 +73,7 @@ export async function GET(request: Request) {
         channel,
       ),
       rows(
-        "SELECT l.*,a.mime,a.name asset_name,(SELECT COUNT(*) FROM completions c WHERE c.lesson_id=l.id AND c.member_id=?) completed FROM lessons l LEFT JOIN assets a ON a.id=l.asset_id WHERE l.published=1 OR ?='admin' ORDER BY l.position,l.created_at",
+        "SELECT l.*,a.mime,a.name asset_name,(SELECT COUNT(*) FROM completions c WHERE c.lesson_id=l.id AND c.member_id=?) completed FROM lessons l LEFT JOIN assets a ON a.id=l.asset_id LEFT JOIN courses co ON co.id=l.course_id WHERE (l.published=1 AND (l.course_id IS NULL OR co.published=1)) OR ?='admin' ORDER BY l.position,l.created_at",
         me.id,
         me.role,
       ),
@@ -141,6 +141,22 @@ export async function GET(request: Request) {
       admin,
       updatedAt: Date.now(),
       connectionsAvailable: !!bindings().DATA_ENCRYPTION_KEY,
+      courses: await rows(
+        "SELECT * FROM courses WHERE published=1 OR ?='admin' ORDER BY position,created_at",
+        me.role,
+      ),
+      modules: await rows(
+        "SELECT cm.* FROM course_modules cm JOIN courses co ON co.id=cm.course_id WHERE co.published=1 OR ?='admin' ORDER BY cm.position,cm.title",
+        me.role,
+      ),
+      learningBoard: await rows(
+        "SELECT m.id,m.name,COUNT(c.lesson_id) points FROM members m JOIN completions c ON c.member_id=m.id JOIN lessons l ON l.id=c.lesson_id LEFT JOIN courses co ON co.id=l.course_id WHERE m.status='active' AND m.activity_leaderboard=1 AND l.published=1 AND (l.course_id IS NULL OR co.published=1) AND c.completed_at>=? GROUP BY m.id ORDER BY points DESC,m.joined_at LIMIT 100",
+        since,
+      ),
+      helpfulBoard: await rows(
+        "SELECT m.id,m.name,COUNT(DISTINCT r.member_id) points FROM members m JOIN posts p ON p.member_id=m.id JOIN reactions r ON r.post_id=p.id JOIN members voter ON voter.id=r.member_id WHERE m.status='active' AND m.activity_leaderboard=1 AND voter.status='active' AND r.member_id<>m.id AND p.created_at>=? GROUP BY m.id ORDER BY points DESC,m.joined_at LIMIT 100",
+        since,
+      ),
     });
   });
 }
@@ -189,10 +205,11 @@ export async function POST(request: Request) {
     const me = await member();
     if (action === 'profile') {
       await statement(
-        'UPDATE members SET name=?,bio=?,leaderboard=? WHERE id=?',
+        'UPDATE members SET name=?,bio=?,leaderboard=?,activity_leaderboard=? WHERE id=?',
         requiredText(b.name, 50),
         typeof b.bio === 'string' ? requiredText(b.bio, 240, 0) : '',
         b.leaderboard === true ? 1 : 0,
+        b.activity_leaderboard === true ? 1 : 0,
         me.id,
       ).run();
     } else if (action === 'post') {
@@ -259,7 +276,7 @@ export async function POST(request: Request) {
       const id = requiredText(b.id, 80);
       if (
         !(await statement(
-          'SELECT id FROM lessons WHERE id=? AND published=1',
+          'SELECT l.id FROM lessons l LEFT JOIN courses co ON co.id=l.course_id WHERE l.id=? AND l.published=1 AND (l.course_id IS NULL OR co.published=1)',
           id,
         ).first())
       )
@@ -438,19 +455,43 @@ export async function POST(request: Request) {
         )
           throw new HttpError(400, 'Upload the file first.');
         const duration = Number(b.duration);
+        const courseId = b.course_id ? requiredText(b.course_id, 80) : null;
+        const moduleId = b.module_id ? requiredText(b.module_id, 80) : null;
+        if (
+          courseId &&
+          !(await statement(
+            'SELECT id FROM courses WHERE id=?',
+            courseId,
+          ).first())
+        )
+          throw new HttpError(400, 'Choose an existing course.');
+        if (
+          moduleId &&
+          !(await statement(
+            'SELECT id FROM course_modules WHERE id=? AND course_id=?',
+            moduleId,
+            courseId,
+          ).first())
+        )
+          throw new HttpError(400, 'Choose a module in this course.');
+        const position = Number(b.position || 0);
+        if (!Number.isInteger(position) || position < 0 || position > 999)
+          throw new HttpError(400, 'Position must be 0–999.');
         if (!Number.isInteger(duration) || duration < 1 || duration > 600)
           throw new HttpError(400, 'Lesson duration must be 1–600 minutes.');
         await statement(
-          'INSERT INTO lessons(id,title,category,body,duration,position,published,asset_id,created_at) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,category=excluded.category,body=excluded.body,duration=excluded.duration,published=excluded.published,asset_id=excluded.asset_id',
+          'INSERT INTO lessons(id,title,category,body,duration,position,published,asset_id,created_at,course_id,module_id) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,category=excluded.category,body=excluded.body,duration=excluded.duration,position=excluded.position,published=excluded.published,asset_id=excluded.asset_id,course_id=excluded.course_id,module_id=excluded.module_id',
           id,
           requiredText(b.title, 120),
           requiredText(b.category, 60),
           requiredText(b.body, 10000),
           duration,
-          0,
+          position,
           b.published === true ? 1 : 0,
           assetId,
           now,
+          courseId,
+          moduleId,
         ).run();
         await log(me.id, 'save-lesson', id);
       } else if (action === 'review-event') {

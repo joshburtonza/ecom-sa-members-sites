@@ -16,6 +16,7 @@ export const members = sqliteTable(
     role: text().notNull().default('member'),
     status: text().notNull().default('active'),
     leaderboard: integer().notNull().default(0),
+    activity_leaderboard: integer().notNull().default(0),
     joined_at: integer().notNull(),
   },
   (t) => [uniqueIndex('members_email').on(t.email)],
@@ -63,6 +64,23 @@ export const reactions = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.post_id, t.member_id] })],
 );
+export const courses = sqliteTable('courses', {
+  id: text().primaryKey(),
+  title: text().notNull(),
+  summary: text().notNull().default(''),
+  level: text().notNull().default('Start here'),
+  published: integer().notNull().default(0),
+  position: integer().notNull().default(0),
+  created_at: integer().notNull(),
+});
+export const courseModules = sqliteTable('course_modules', {
+  id: text().primaryKey(),
+  course_id: text()
+    .notNull()
+    .references(() => courses.id),
+  title: text().notNull(),
+  position: integer().notNull().default(0),
+});
 export const lessons = sqliteTable('lessons', {
   id: text().primaryKey(),
   title: text().notNull(),
@@ -72,6 +90,8 @@ export const lessons = sqliteTable('lessons', {
   position: integer().notNull().default(0),
   published: integer().notNull().default(0),
   asset_id: text(),
+  course_id: text().references(() => courses.id),
+  module_id: text().references(() => courseModules.id),
   created_at: integer().notNull(),
 });
 export const completions = sqliteTable(
@@ -160,3 +180,47 @@ export const audit = sqliteTable('audit', {
   target: text().notNull(),
   created_at: integer().notNull(),
 });
+export const reviewAssets = sqliteTable('review_assets', {
+  id: text().primaryKey(),
+  member_id: text()
+    .notNull()
+    .references(() => members.id),
+  mime: text().notNull(),
+  size: integer().notNull(),
+  created_at: integer().notNull(),
+});
+export const adReviews = sqliteTable(
+  'ad_reviews',
+  {
+    id: text().primaryKey(),
+    member_id: text()
+      .notNull()
+      .references(() => members.id),
+    title: text().notNull(),
+    kind: text().notNull(),
+    audience: text().notNull(),
+    offer: text().notNull(),
+    copy: text().notNull(),
+    asset_id: text().references(() => reviewAssets.id),
+    parent_id: text(),
+    status: text().notNull().default('draft'),
+    result: text(),
+    score: integer(),
+    model: text(),
+    error: text(),
+    created_at: integer().notNull(),
+    updated_at: integer().notNull(),
+  },
+  (t) => [index('reviews_member_time').on(t.member_id, t.created_at)],
+);
+export const reviewUsage = sqliteTable(
+  'review_usage',
+  {
+    id: text().primaryKey(),
+    member_id: text()
+      .notNull()
+      .references(() => members.id),
+    created_at: integer().notNull(),
+  },
+  (t) => [index('review_usage_time').on(t.created_at)],
+);

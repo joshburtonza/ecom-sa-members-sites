@@ -15,6 +15,20 @@ The initial publication is owner-private. Before member invitations or external 
 - Idempotent ZAR event ingestion and manual event log.
 - Signed Shopify paid-order and successful-refund webhook receiver.
 - Admin membership suspension, invitations, result review and audit trail.
+- My Courses: real course and module editor, ordered lessons, course progress, continue-learning and completion filters. Original category lessons remain intact. A draft parent course also gates lesson bodies, completion writes and hosted files.
+- Leaderboards for published lesson completions and helpful contributions, in addition to the existing reported/team-reviewed sales boards. Learning/helpfulness have a separate default-off privacy setting. Helpful points count distinct other active members who reacted to posts written in the selected period; self-likes never count. Rankings show at most 100 members, ties use join date.
+- Private Ad Review workspace: saved ad, landing-copy and offer drafts; PNG/JPG/WebP screenshots (2 MB); review history; copyable suggested copy; new-version comparison. No page scraping, video analysis or ad publishing.
+
+## AI setup and limits
+Live AI is disabled until OPENAI_API_KEY is configured as a secret in Sites. Use the OpenAI Developers plugin's secure API-key setup with owner approval; never enter a provider key in a member form or check it into source. OPENAI_REVIEW_MODEL is optional; default gpt-4.1-mini supports image input, Responses and strict structured output. This version has been tested with a mock provider, not a live paid request.
+
+Members explicitly consent before copy and an optional screenshot are sent to OpenAI. Draft storage alone does not send data. Requests use the fixed Responses endpoint, store:false, no tools, a 45-second timeout and a 3,000-output-token ceiling. store:false disables stored Responses, not all provider retention; applicable provider data policies still apply. Do not submit customer data or secrets.
+
+Each member can make 3 attempts per rolling 24 hours, with a community cap of 60 attempts; failed or interrupted calls consume an attempt. Atomic D1 reservations prevent duplicate runs exceeding the allowance. No automatic billed retries. Provider errors/refusals/incomplete output produce a failed state, never heuristic or fake AI scores.
+
+Five criteria are each 0–10; the server calculates the total out of 100. Ratings are subjective feedback, not conversion forecasts, profit claims or Meta approval. Rewrites require a human fact check. Reviews/screenshots are account-private even from ordinary administrators. Each member has a cap of 100 drafts/reviews and 120 screenshots; detached screenshots remain private and retained until an owner-assisted deletion request. No self-service erasure yet.
+
+Course content is not imported from Skool or local files automatically. Only the original three workspace quickstart lessons are present until the owner supplies or uploads the actual course library.
 
 ## Integration
 POST /api/v1/events with Authorization: Bearer <key>. JSON fields: event_id, kind (sale/refund), amount_cents (positive integer), currency (ZAR), occurred_at (ISO with timezone), optional note. The key owns the member/store mapping. 201 new, 200 duplicate, 409 conflicting reused ID. Do not put keys in browser JavaScript. Use one source per sale. Store integrations need their own retry queue.
@@ -34,11 +48,15 @@ Use ignored .dev.vars with ADMIN_EMAIL=seedy@sites.test and a local-only 64-hex 
 
 node tests/run.mjs
 node tests/integration.mjs
+node tests/run-academy.mjs
+node tests/academy-integration.mjs
 npx tsc --noEmit
 npm run build
 
 Integration tests use ONLY localhost:3210 and the project-local Wrangler D1. They remove synthetic local activity at the end. Do not run against production.
 Before running the HTTP integration suite, sign in locally once to create the test administrator, then set the local ADMIN_EMAIL to fixture-owner@sites.test and restart dev. This lets the suite test invitation redemption without the owner auto-bootstrap bypassing the invitation gate. Restore seedy@sites.test afterwards. The production ADMIN_EMAIL is never changed.
+
+The separate academy integration suite does not require changing ADMIN_EMAIL. It requires local_seedy to be an admin and AI to be disconnected; it temporarily changes only that fixture's role/privacy/status, restores the exact profile, and removes only run-specific records. AI contract tests inject a mock response and make no external calls.
 
 ## Operations / boundaries
 No imported Skool content or real member list. Three authored workspace orientation lessons ship by migration. No direct messages, voice/video calls, subscriptions/paywall syncing, email service, large-video transcoding or Shopify OAuth app. Invitations are shared manually after confirming paid membership. Community search is scoped to the current channel's latest 80 posts. Thread history is capped at 100 replies; directory and admin member views at 200 records. These limits are visible MVP scale boundaries, not archival deletion.
